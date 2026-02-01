@@ -34,11 +34,11 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activeTab, se
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="bg-blue-900 p-2 rounded-lg shadow-inner">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
+              <img 
+                src="/SCOELOGOSQR.jpeg" 
+                alt="SCOE Logo" 
+                className="h-14 w-14 object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow"
+              />
               <div>
                 <h1 className="text-lg font-black text-blue-900 leading-tight tracking-tighter">SCOE</h1>
                 <p className="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Leave Portal</p>
