@@ -28,7 +28,18 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activeTab, se
   if (isPrincipal) tabs.push({ id: 'settings', name: 'System Settings' });
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div 
+      className="min-h-screen flex flex-col bg-cover bg-center bg-fixed"
+      style={{
+        backgroundImage: 'url(/scoe-building.jpg)',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-black/40 pointer-events-none"></div>
+      
+      {/* Content wrapper */}
+      <div className="relative z-10 flex flex-col min-h-screen">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -95,8 +106,10 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activeTab, se
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">&copy; {new Date().getFullYear()} Saraswati College of Engineering. Institutional Portal.</p>
         </div>
       </footer>
+      </div>
     </div>
   );
+};
 };
 
 export default Layout;
