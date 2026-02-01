@@ -1,0 +1,5 @@
+{
+  "name": "SCOE Leave Management System",
+  "description": "A comprehensive leave management system for Saraswati College of Engineering featuring role-based access, multi-level approvals, and administrative controls.",
+  "requestFramePermissions": []
+}
