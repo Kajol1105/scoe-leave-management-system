@@ -195,6 +195,11 @@ const App: React.FC = () => {
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300 border border-white/50">
           <div className="p-8 border-b border-gray-100 text-center relative overflow-hidden bg-blue-900">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+            <img 
+              src="/SCOELOGOSQR.jpeg" 
+              alt="SCOE Logo" 
+              className="h-16 w-16 object-cover rounded-lg mx-auto mb-3 shadow-lg"
+            />
             <h1 className="text-2xl font-black text-white tracking-tight">SCOE PORTAL</h1>
             <p className="text-blue-200 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Saraswati College of Engineering</p>
           </div>
