@@ -172,7 +172,18 @@ const App: React.FC = () => {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div 
+        className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center"
+        style={{
+          backgroundImage: 'url(/SCOEBG.jpeg)',
+          backgroundAttachment: 'fixed'
+        }}
+      >
+        {/* Dark overlay for readability */}
+        <div className="absolute inset-0 bg-black/40"></div>
+        
+        {/* Content */}
+        <div className="relative z-10">
         {isLoading && (
           <div className="fixed inset-0 bg-blue-900/10 backdrop-blur-sm z-50 flex items-center justify-center">
             <div className="bg-white p-4 rounded-2xl shadow-xl flex items-center space-x-3">
@@ -280,6 +291,7 @@ const App: React.FC = () => {
               </form>
             )}
           </div>
+        </div>
         </div>
       </div>
     );
