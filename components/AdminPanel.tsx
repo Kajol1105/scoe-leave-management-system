@@ -25,6 +25,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
     role: Role.TEACHING_STAFF,
     department: Department.COMPS,
     dateOfJoining: '',
+    
   });
 
   // Filter users based on search and filters

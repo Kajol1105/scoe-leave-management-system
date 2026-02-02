@@ -306,29 +306,7 @@ const App: React.FC = () => {
                       <option value={ApproverRole.PRINCIPAL}>{ApproverRole.PRINCIPAL} - Your leaves will be approved by Principal</option>
                       <option value={ApproverRole.ADMIN}>{ApproverRole.ADMIN} - Your leaves will be approved by Admin</option>
                     </select>
-                    <select
-                      className="w-full px-4 py-3 rounded-xl border border-blue-200 bg-blue-50 text-sm font-semibold"
-                      value={signupForm.approverId}
-                      onChange={e => setSignupForm({...signupForm, approverId: e.target.value})}
-                      required
-                    >
-                      <option value="">Select Your Approver</option>
-                      {signupForm.approverRole === ApproverRole.HOD && (
-                        users.filter(u => u.role === Role.HOD && u.department === signupForm.department).map(u => (
-                          <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
-                        ))
-                      )}
-                      {signupForm.approverRole === ApproverRole.PRINCIPAL && (
-                        users.filter(u => u.role === Role.PRINCIPAL).map(u => (
-                          <option key={u.id} value={u.id}>{u.name} (Principal)</option>
-                        ))
-                      )}
-                      {signupForm.approverRole === ApproverRole.ADMIN && (
-                        users.filter(u => u.role === Role.HOD && u.department === signupForm.department).map(u => (
-                          <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
-                        ))
-                      )}
-                    </select>
+                    
                   </>
                 )}
                 {(signupForm.role === Role.ADMIN_1 || signupForm.role === Role.ADMIN_2 || signupForm.role === Role.ADMIN) && (
