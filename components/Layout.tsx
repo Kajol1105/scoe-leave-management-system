@@ -82,11 +82,7 @@ const Layout: React.FC<LayoutProps> = ({
     <div className="min-h-screen flex flex-col">
 
       {/* SCOE Logo */}
-      <img
-        src="/SCOELOGOSQR.jpeg"
-        alt="SCOE Logo"
-        className="fixed top-4 left-4 max-w-xs rounded-lg shadow-xl z-30"
-      />
+     
 
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">

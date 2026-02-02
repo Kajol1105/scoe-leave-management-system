@@ -394,7 +394,7 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-        {activeTab === 'approvals' && <ApprovalPanel user={currentUser} users={users} requests={leaveRequests} onAction={handleLeaveAction} />}
+        {activeTab === 'approvals' && <ApprovalPanel user={currentUser} users={users} requests={leaveRequests} onAction={handleLeaveAction}  />}
         {activeTab === 'admin' && <AdminPanel users={users} onAddUser={handleAddStaff} onDeleteUser={handleDeleteStaff} onUpdateQuotas={handleUpdateQuotas} />}
         {activeTab === 'settings' && (
           <div className="max-w-xl mx-auto space-y-8">

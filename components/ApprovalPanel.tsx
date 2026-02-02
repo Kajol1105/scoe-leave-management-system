@@ -7,6 +7,7 @@ interface ApprovalPanelProps {
   users: User[];
   requests: LeaveRequest[];
   onAction: (requestId: string, status: LeaveStatus) => void;
+  //department: User.department
 }
 
 const ApprovalPanel: React.FC<ApprovalPanelProps> = ({ user, users, requests, onAction }) => {
