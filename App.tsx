@@ -27,6 +27,7 @@ const App: React.FC = () => {
     department: Department.COMPS,
     dateOfJoining: '',
     approverRole: ApproverRole.HOD,
+    approverId: '',
   });
   const [adminCodeInput, setAdminCodeInput] = useState('');
 
@@ -109,18 +110,62 @@ const App: React.FC = () => {
 
   const handleApplyLeave = async (request: Omit<LeaveRequest, 'id' | 'appliedDate' | 'status' | 'userName' | 'department'>) => {
     if (!currentUser) return;
+    
+    // Calculate number of days
+    const startDate = new Date(request.startDate);
+    const endDate = new Date(request.endDate);
+    const daysRequested = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Extract leave type key (e.g., "CL" from "Casual Leave (CL)")
+    const typeKey = request.type.split(' ')[0] as keyof LeaveQuotas;
+    
+    // Check if user has enough quota
+    if (currentUser.quotas[typeKey] < daysRequested) {
+      alert(`Insufficient ${request.type} balance. You have ${currentUser.quotas[typeKey]} days available.`);
+      return;
+    }
+    
+    // Determine designated approver
+    const principalUser = users.find(u => u.role === Role.PRINCIPAL);
+    const isAdminRole = currentUser.role === Role.ADMIN || currentUser.role === Role.ADMIN_1 || currentUser.role === Role.ADMIN_2;
+    const designatedApproverId = isAdminRole ? (principalUser?.id || '') : (currentUser.approverId || '');
+
+    // Only Principal's own leaves are auto-approved
+    const shouldAutoApprove = currentUser.role === Role.PRINCIPAL;
+
     const newRequest: LeaveRequest = {
       ...request,
       id: Math.random().toString(36).substr(2, 9),
       userName: currentUser.name,
       department: currentUser.department,
-      status: LeaveStatus.PENDING,
-      appliedDate: new Date().toISOString().split('T')[0]
+      status: shouldAutoApprove ? LeaveStatus.APPROVED : LeaveStatus.PENDING,
+      appliedDate: new Date().toISOString().split('T')[0],
+      approverId: designatedApproverId
     };
+
     setIsLoading(true);
     await db.applyLeave(newRequest);
-    const updatedRequests = await db.getLeaveRequests();
+
+    if (shouldAutoApprove) {
+      // Deduct quotas immediately for Principal
+      const updatedQuotas = {
+        ...currentUser.quotas,
+        [typeKey]: Math.max(0, currentUser.quotas[typeKey] - daysRequested)
+      };
+      await db.updateQuotas(currentUser.id, updatedQuotas);
+      setCurrentUser({ ...currentUser, quotas: updatedQuotas });
+      alert(`Leave approved! ${daysRequested} days deducted from your ${request.type} balance.`);
+    } else {
+      alert(`Leave submitted for approval. Pending until reviewed.`);
+    }
+
+    const [updatedRequests, updatedUsers] = await Promise.all([
+      db.getLeaveRequests(),
+      db.getUsers()
+    ]);
     setLeaveRequests(updatedRequests);
+    setUsers(updatedUsers);
+    
     setIsLoading(false);
     setActiveTab('history');
   };
@@ -179,11 +224,13 @@ const App: React.FC = () => {
           backgroundAttachment: 'fixed'
         }}
       >
-        {/* Dark overlay for readability */}
-        <div className="absolute inset-0 bg-black/40"></div>
+        {/* SCOE Logo */}
+        <img 
+          src="/SCOELOGOSQR.jpeg" 
+          alt="SCOE Logo" 
+          className="fixed top-4 left-4 w-auto h-auto max-w-xs object-contain rounded-lg shadow-xl z-30 hover:shadow-2xl transition-shadow"
+        />
         
-        {/* Content */}
-        <div className="relative z-10">
         {isLoading && (
           <div className="fixed inset-0 bg-blue-900/10 backdrop-blur-sm z-50 flex items-center justify-center">
             <div className="bg-white p-4 rounded-2xl shadow-xl flex items-center space-x-3">
@@ -195,11 +242,6 @@ const App: React.FC = () => {
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300 border border-white/50">
           <div className="p-8 border-b border-gray-100 text-center relative overflow-hidden bg-blue-900">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-            <img 
-              src="/SCOELOGOSQR.jpeg" 
-              alt="SCOE Logo" 
-              className="h-16 w-16 object-cover rounded-lg mx-auto mb-3 shadow-lg"
-            />
             <h1 className="text-2xl font-black text-white tracking-tight">SCOE PORTAL</h1>
             <p className="text-blue-200 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Saraswati College of Engineering</p>
           </div>
@@ -254,15 +296,40 @@ const App: React.FC = () => {
                   </select>
                 </div>
                 {signupForm.role !== Role.ADMIN && signupForm.role !== Role.ADMIN_1 && signupForm.role !== Role.ADMIN_2 && signupForm.role !== Role.PRINCIPAL && (
-                  <select
-                    className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm font-semibold"
-                    value={signupForm.approverRole}
-                    onChange={e => setSignupForm({...signupForm, approverRole: e.target.value as ApproverRole})}
-                  >
-                    <option value={ApproverRole.HOD}>{ApproverRole.HOD} - Your leaves will be approved by HOD</option>
-                    <option value={ApproverRole.PRINCIPAL}>{ApproverRole.PRINCIPAL} - Your leaves will be approved by Principal</option>
-                    <option value={ApproverRole.HEAD}>{ApproverRole.HEAD} - Your leaves will be approved by Department Head</option>
-                  </select>
+                  <>
+                    <select
+                      className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm font-semibold"
+                      value={signupForm.approverRole}
+                      onChange={e => setSignupForm({...signupForm, approverRole: e.target.value as ApproverRole})}
+                    >
+                      <option value={ApproverRole.HOD}>{ApproverRole.HOD} - Your leaves will be approved by HOD</option>
+                      <option value={ApproverRole.PRINCIPAL}>{ApproverRole.PRINCIPAL} - Your leaves will be approved by Principal</option>
+                      <option value={ApproverRole.ADMIN}>{ApproverRole.ADMIN} - Your leaves will be approved by Admin</option>
+                    </select>
+                    <select
+                      className="w-full px-4 py-3 rounded-xl border border-blue-200 bg-blue-50 text-sm font-semibold"
+                      value={signupForm.approverId}
+                      onChange={e => setSignupForm({...signupForm, approverId: e.target.value})}
+                      required
+                    >
+                      <option value="">Select Your Approver</option>
+                      {signupForm.approverRole === ApproverRole.HOD && (
+                        users.filter(u => u.role === Role.HOD && u.department === signupForm.department).map(u => (
+                          <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
+                        ))
+                      )}
+                      {signupForm.approverRole === ApproverRole.PRINCIPAL && (
+                        users.filter(u => u.role === Role.PRINCIPAL).map(u => (
+                          <option key={u.id} value={u.id}>{u.name} (Principal)</option>
+                        ))
+                      )}
+                      {signupForm.approverRole === ApproverRole.ADMIN && (
+                        users.filter(u => u.role === Role.HOD && u.department === signupForm.department).map(u => (
+                          <option key={u.id} value={u.id}>{u.name} ({u.department})</option>
+                        ))
+                      )}
+                    </select>
+                  </>
                 )}
                 {(signupForm.role === Role.ADMIN_1 || signupForm.role === Role.ADMIN_2 || signupForm.role === Role.ADMIN) && (
                   <input
@@ -297,13 +364,12 @@ const App: React.FC = () => {
             )}
           </div>
         </div>
-        </div>
       </div>
     );
   }
 
   return (
-    <Layout user={currentUser} onLogout={handleLogout} activeTab={activeTab} setActiveTab={setActiveTab}>
+    <Layout user={currentUser} onLogout={handleLogout} activeTab={activeTab} setActiveTab={setActiveTab} onProfileUpdate={(u) => setCurrentUser(u)}>
       {isLoading && (
         <div className="fixed top-20 right-8 z-50 animate-in fade-in slide-in-from-right-4">
           <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-full shadow-lg border border-blue-100 flex items-center space-x-2">

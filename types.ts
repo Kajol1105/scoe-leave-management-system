@@ -12,7 +12,7 @@ export enum Role {
 export enum ApproverRole {
   HOD = 'HOD',
   PRINCIPAL = 'Principal',
-  HEAD = 'Department Head'
+  ADMIN = 'ADMIN'
 }
 
 export enum Department {
@@ -61,6 +61,8 @@ export interface User {
   password: string;
   quotas: LeaveQuotas;
   approverRole?: ApproverRole;
+  approverId?: string;  // ID of the designated approver for this staff member
+  avatarUrl?: string;
 }
 
 export interface LeaveRequest {

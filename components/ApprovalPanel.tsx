@@ -25,27 +25,35 @@ const ApprovalPanel: React.FC<ApprovalPanelProps> = ({ user, users, requests, on
       return false;
     }
 
-    // Check based on approverRole field
-    if (applicant.approverRole === ApproverRole.HOD) {
-      // HOD approves this person: HOD of their department
-      if (user.role === Role.HOD && req.department === user.department) {
-        return true;
-      }
-    } else if (applicant.approverRole === ApproverRole.PRINCIPAL) {
-      // Principal approves this person
-      if (user.role === Role.PRINCIPAL) {
-        return true;
-      }
-    } else if (applicant.approverRole === ApproverRole.HEAD) {
-      // Department Head (treated as HOD) approves this person: Head of their department
-      if (user.role === Role.HOD && req.department === user.department) {
-        return true;
-      }
+    // Check if current user is the designated approver (new system)
+    if (req.approverId === user.id) {
+      return true;
     }
 
-    // Principal approves all HODs
-    if (applicant.role === Role.HOD && user.role === Role.PRINCIPAL) {
-      return true;
+    // Backward compatibility: If no approverId is set, use role-based approval
+    if (!req.approverId) {
+      // Check based on approverRole field
+      if (applicant.approverRole === ApproverRole.HOD) {
+        // HOD approves this person: HOD of their department
+        if (user.role === Role.HOD && req.department === user.department) {
+          return true;
+        }
+      } else if (applicant.approverRole === ApproverRole.PRINCIPAL) {
+        // Principal approves this person
+        if (user.role === Role.PRINCIPAL) {
+          return true;
+        }
+      } else if (applicant.approverRole === ApproverRole.ADMIN) {
+        // Department Head (treated as HOD) approves this person: Head of their department
+        if (user.role === Role.HOD && req.department === user.department) {
+          return true;
+        }
+      }
+
+      // Principal approves all HODs
+      if (applicant.role === Role.HOD && user.role === Role.PRINCIPAL) {
+        return true;
+      }
     }
 
     return false;

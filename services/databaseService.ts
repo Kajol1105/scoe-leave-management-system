@@ -169,27 +169,38 @@ export const db = {
     try {
       const { firestore: db } = initializeFirebase();
       const requestRef = doc(db, 'leaveRequests', requestId);
-      await updateDoc(requestRef, { status });
+      
+      // First get the request document
+      const requestSnapshot = await getDocs(query(collection(db, 'leaveRequests'), where('id', '==', requestId)));
+      if (requestSnapshot.empty) {
+        console.error('Leave request not found:', requestId);
+        throw new Error('Leave request not found');
+      }
+      
+      const requestDoc = requestSnapshot.docs[0];
+      const request = requestDoc.data() as LeaveRequest;
+      
+      // Update the leave status using the document ID
+      await updateDoc(doc(db, 'leaveRequests', requestDoc.id), { status });
 
       // If approved, deduct from user quotas
       if (status === LeaveStatus.APPROVED) {
-        const requestDoc = await getDocs(query(collection(db, 'leaveRequests'), where('id', '==', requestId)));
-        const request = requestDoc.docs[0]?.data() as LeaveRequest;
+        // Calculate number of days
+        const startDate = new Date(request.startDate);
+        const endDate = new Date(request.endDate);
+        const daysRequested = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         
-        if (request) {
-          const typeKey = request.type.split(' ')[0] as keyof LeaveQuotas;
-          const userRef = doc(db, 'users', request.userId);
-          const userDoc = await getDocs(query(collection(db, 'users'), where('id', '==', request.userId)));
-          const user = userDoc.docs[0]?.data() as User;
-          
-          if (user) {
-            await updateDoc(userRef, {
-              quotas: {
-                ...user.quotas,
-                [typeKey]: Math.max(0, user.quotas[typeKey] - 1)
-              }
-            });
-          }
+        const typeKey = request.type.split(' ')[0] as keyof LeaveQuotas;
+        const userDoc = await getDocs(query(collection(db, 'users'), where('id', '==', request.userId)));
+        const user = userDoc.docs[0]?.data() as User;
+        
+        if (user) {
+          await updateDoc(doc(db, 'users', userDoc.docs[0].id), {
+            quotas: {
+              ...user.quotas,
+              [typeKey]: Math.max(0, user.quotas[typeKey] - daysRequested)
+            }
+          });
         }
       }
     } catch (error) {
@@ -201,6 +212,11 @@ export const db = {
       dbState.leaveRequests[reqIndex] = { ...request, status };
 
       if (status === LeaveStatus.APPROVED) {
+        // Calculate number of days
+        const startDate = new Date(request.startDate);
+        const endDate = new Date(request.endDate);
+        const daysRequested = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
         const typeKey = request.type.split(' ')[0] as keyof LeaveQuotas;
         dbState.users = dbState.users.map(u => {
           if (u.id === request.userId) {
@@ -208,7 +224,7 @@ export const db = {
               ...u,
               quotas: {
                 ...u.quotas,
-                [typeKey]: Math.max(0, u.quotas[typeKey] - 1)
+                [typeKey]: Math.max(0, u.quotas[typeKey] - daysRequested)
               }
             };
           }
