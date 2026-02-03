@@ -203,7 +203,11 @@ export const db = {
     }
   },
 
-  async updateLeaveStatus(requestId: string, status: LeaveStatus): Promise<void> {
+  async updateLeaveStatus(
+    requestId: string,
+    status: LeaveStatus,
+    approvedBy?: { approvedById?: string; approvedByName?: string }
+  ): Promise<void> {
     try {
       const { firestore: firestoreDb } = initializeFirebase();
       const requestRef = doc(firestoreDb, 'leaveRequests', requestId);
@@ -223,8 +227,14 @@ export const db = {
       
       const previousStatus = request.status;
 
+      const updatePayload: Partial<LeaveRequest> = { status };
+      if (approvedBy) {
+        if (approvedBy.approvedById !== undefined) updatePayload.approvedById = approvedBy.approvedById;
+        if (approvedBy.approvedByName !== undefined) updatePayload.approvedByName = approvedBy.approvedByName;
+      }
+
       // Update the leave status using the document ID
-      await updateDoc(doc(firestoreDb, 'leaveRequests', requestDoc.id), { status });
+      await updateDoc(doc(firestoreDb, 'leaveRequests', requestDoc.id), updatePayload);
 
       // If approved, deduct from user quotas
       if (status === LeaveStatus.APPROVED && previousStatus !== LeaveStatus.APPROVED) {
@@ -265,7 +275,12 @@ export const db = {
 
       const request = dbState.leaveRequests[reqIndex];
       const previousStatus = request.status;
-      dbState.leaveRequests[reqIndex] = { ...request, status };
+      const updatedRequest: LeaveRequest = { ...request, status };
+      if (approvedBy) {
+        if (approvedBy.approvedById !== undefined) updatedRequest.approvedById = approvedBy.approvedById;
+        if (approvedBy.approvedByName !== undefined) updatedRequest.approvedByName = approvedBy.approvedByName;
+      }
+      dbState.leaveRequests[reqIndex] = updatedRequest;
 
       if (status === LeaveStatus.APPROVED && previousStatus !== LeaveStatus.APPROVED) {
         // Calculate number of working days (Mon-Fri only) unless manually provided

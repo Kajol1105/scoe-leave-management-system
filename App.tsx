@@ -223,7 +223,9 @@ const App: React.FC = () => {
       department: currentUser.department,
       status: shouldAutoApprove ? LeaveStatus.APPROVED : LeaveStatus.PENDING,
       appliedDate: new Date().toISOString().split('T')[0],
-      approverId: designatedApproverId
+      approverId: designatedApproverId,
+      approvedById: shouldAutoApprove ? currentUser.id : '',
+      approvedByName: shouldAutoApprove ? currentUser.name : ''
     };
 
     setIsLoading(true);
@@ -258,7 +260,9 @@ const App: React.FC = () => {
     const request = leaveRequests.find(r => r.id === requestId);
     const previousStatus = request?.status;
     const userBefore = request ? users.find(u => u.id === request.userId) : undefined;
-    await db.updateLeaveStatus(requestId, status);
+    const approvedById = status === LeaveStatus.APPROVED ? (currentUser?.id || '') : '';
+    const approvedByName = status === LeaveStatus.APPROVED ? (currentUser?.name || '') : '';
+    await db.updateLeaveStatus(requestId, status, { approvedById, approvedByName });
     const [u, r] = await Promise.all([db.getUsers(), db.getLeaveRequests()]);
     setUsers(u);
     if (request && previousStatus !== LeaveStatus.APPROVED && status === LeaveStatus.APPROVED && userBefore) {
@@ -512,6 +516,11 @@ const App: React.FC = () => {
                           <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${req.status === LeaveStatus.APPROVED ? 'bg-green-100 text-green-700' : req.status === LeaveStatus.REJECTED ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
                             {req.status}
                           </span>
+                          {req.status === LeaveStatus.APPROVED && req.approvedByName && (
+                            <div className="mt-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                              Approved by {req.approvedByName}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))

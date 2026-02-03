@@ -17,15 +17,21 @@ export enum ApproverRole {
 
 export enum Department {
   AIML = 'AIML',
-  AIDA = 'AIDA',
+  AIDS = 'AIDS',
   COMPS = 'COMPS',
   IT = 'IT',
   CIVIL = 'CIVIL',
   MECH = 'MECH',
   AUTOMOBILE = 'AUTOMOBILE',
-  STUDENT_SECTION = 'Student Section',
+  OFFICE = 'OFFICE',
+  LIBRARY = 'LIBRARY',
+  ACCOUNT = 'ACCOUNT',
+  ESTABLISHMENT = 'ESTABLISHMENT',
+  STORE = 'STORE',
+  FIRST_YEAR = 'FIRST YEAR',
+  STUDENT_SECTION = 'STUDENT SECTION',
   TPO = 'TPO',
-  EXAM_CELL = 'Exam Cell',
+  EXAM_CELL = 'EXAM CELL',
   NOT_APPLICABLE = 'Not Applicable'
 }
 
@@ -78,6 +84,8 @@ export interface LeaveRequest {
   status: LeaveStatus;
   appliedDate: string;
   approverId?: string;
+  approvedById?: string;
+  approvedByName?: string;
 }
 
 export interface AppState {
