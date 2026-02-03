@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User, Role, Department, LeaveQuotas } from '../types';
+import { User, Role, Department, LeaveQuotas, ApproverRole } from '../types';
 import { ROLES, DEPARTMENTS, DEFAULT_QUOTAS } from '../constants';
 
 interface AdminPanelProps {
@@ -25,6 +25,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
     role: Role.TEACHING_STAFF,
     department: Department.COMPS,
     dateOfJoining: '',
+    approverRole: ApproverRole.HOD,
+    approverId: '',
     
   });
 
@@ -39,8 +41,22 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    let approverId = newUser.approverId;
+    if (newUser.approverRole === ApproverRole.HOD) {
+      const hod = users.find(u => u.role === Role.HOD && u.department === newUser.department);
+      approverId = hod?.id || '';
+    } else if (newUser.approverRole === ApproverRole.PRINCIPAL) {
+      const principal = users.find(u => u.role === Role.PRINCIPAL);
+      approverId = principal?.id || '';
+    } else if (newUser.approverRole === ApproverRole.ADMIN) {
+      if (!approverId) {
+        const admin = users.find(u => u.role === Role.ADMIN || u.role === Role.ADMIN_1 || u.role === Role.ADMIN_2);
+        approverId = admin?.id || '';
+      }
+    }
     onAddUser({
       ...newUser,
+      approverId,
       quotas: { ...DEFAULT_QUOTAS }
     });
     setNewUser({
@@ -50,6 +66,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
       role: Role.TEACHING_STAFF,
       department: Department.COMPS,
       dateOfJoining: '',
+      approverRole: ApproverRole.HOD,
+      approverId: '',
     });
     setShowAddForm(false);
     alert('Staff account created successfully!');
@@ -76,6 +94,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
       onUpdateQuotas(userId, newQuotas);
     }
   };
+  const leaveKeys = (['CL', 'CO', 'ML', 'VL', 'EL'] as Array<keyof LeaveQuotas>);
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
@@ -161,6 +180,35 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
                 {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1">Approver *</label>
+              <select
+                value={newUser.approverRole}
+                onChange={e => setNewUser({...newUser, approverRole: e.target.value as ApproverRole, approverId: ''})}
+                className="block w-full rounded-xl border border-gray-200 bg-white/50 px-4 py-3 text-sm font-semibold outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-900 transition-all"
+              >
+                <option value={ApproverRole.HOD}>HOD of selected department</option>
+                <option value={ApproverRole.PRINCIPAL}>Principal</option>
+                <option value={ApproverRole.ADMIN}>Admin (by email)</option>
+              </select>
+            </div>
+            {newUser.approverRole === ApproverRole.ADMIN && (
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1">Admin Email *</label>
+                <select
+                  value={newUser.approverId}
+                  onChange={e => setNewUser({...newUser, approverId: e.target.value})}
+                  className="block w-full rounded-xl border border-gray-200 bg-white/50 px-4 py-3 text-sm font-semibold outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-900 transition-all"
+                >
+                  <option value="">Select admin email</option>
+                  {users
+                    .filter(u => u.role === Role.ADMIN || u.role === Role.ADMIN_1 || u.role === Role.ADMIN_2)
+                    .map(admin => (
+                      <option key={admin.id} value={admin.id}>{admin.email}</option>
+                    ))}
+                </select>
+              </div>
+            )}
             <div className="md:col-span-3 flex justify-end gap-3">
               <button
                 type="button"
@@ -265,7 +313,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
                     <td className="px-6 py-5">
                       {editingUserId === user.id ? (
                         <div className="flex items-center space-x-2 animate-in fade-in zoom-in-95 duration-200 flex-wrap gap-2">
-                          {(Object.keys(user.quotas) as Array<keyof LeaveQuotas>).map((key) => (
+                          {leaveKeys.map((key) => (
                             <div key={key} className="flex flex-col items-center">
                               <span className="text-[8px] font-black text-gray-400 uppercase mb-1">{key}</span>
                               <div className="flex items-center gap-1">
@@ -310,7 +358,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
                           onClick={() => startEditingQuotas(user)}
                           title="Click to edit leave quotas"
                         >
-                          {(Object.keys(user.quotas) as Array<keyof LeaveQuotas>).map((key) => (
+                          {leaveKeys.map((key) => (
                             <span key={key} className="bg-white border border-gray-200 text-blue-900 text-[11px] font-black px-2 py-1 rounded-lg shadow-sm">
                               {key}: <span className="text-blue-600">{user.quotas[key]}</span>
                             </span>

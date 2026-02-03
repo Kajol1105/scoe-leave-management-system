@@ -73,6 +73,7 @@ export interface LeaveRequest {
   type: LeaveType;
   startDate: string;
   endDate: string;
+  manualDays?: number;
   reason: string;
   status: LeaveStatus;
   appliedDate: string;

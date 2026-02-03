@@ -10,6 +10,7 @@ import ApprovalPanel from './components/ApprovalPanel';
 import AdminPanel from './components/AdminPanel';
 
 const App: React.FC = () => {
+  const CURRENT_USER_KEY = 'scoe_current_user_id';
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -59,6 +60,43 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const refreshData = async () => {
+    if (import.meta.env.VITE_ENABLE_FIREBASE_SYNC !== 'true') return;
+    try {
+      const [u, r] = await Promise.all([db.getUsers(), db.getLeaveRequests()]);
+      setUsers(u);
+      setLeaveRequests(r);
+    } catch (err) {
+      console.error('Refresh failed', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const refreshedUser = users.find(user => user.id === currentUser.id);
+    if (refreshedUser && refreshedUser !== currentUser) {
+      setCurrentUser(refreshedUser);
+    }
+  }, [users, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) return;
+    const savedUserId = localStorage.getItem(CURRENT_USER_KEY);
+    if (!savedUserId || users.length === 0) return;
+    const savedUser = users.find(u => u.id === savedUserId);
+    if (savedUser) setCurrentUser(savedUser);
+  }, [users, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (import.meta.env.VITE_ENABLE_FIREBASE_SYNC !== 'true') return;
+    // Periodic refresh so applicants see approvals made by others
+    const intervalId = setInterval(() => {
+      refreshData();
+    }, 10000);
+    return () => clearInterval(intervalId);
+  }, [currentUser]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     const user = users.find(u => 
@@ -68,6 +106,7 @@ const App: React.FC = () => {
     
     if (user) {
       setCurrentUser(user);
+      localStorage.setItem(CURRENT_USER_KEY, user.id);
       setLoginForm({ email: '', password: '' });
     } else {
       alert('Invalid credentials. Check email/password.');
@@ -87,8 +126,27 @@ const App: React.FC = () => {
       return;
     }
 
+    let approverId = signupForm.approverId;
+    if (!isAdminRole && signupForm.role !== Role.PRINCIPAL) {
+      if (signupForm.approverRole === ApproverRole.HOD) {
+        const hod = users.find(u => u.role === Role.HOD && u.department === signupForm.department);
+        approverId = hod?.id || '';
+      } else if (signupForm.approverRole === ApproverRole.PRINCIPAL) {
+        const principal = users.find(u => u.role === Role.PRINCIPAL);
+        approverId = principal?.id || '';
+      } else if (signupForm.approverRole === ApproverRole.ADMIN) {
+        if (!approverId) {
+          const admin = users.find(u => u.role === Role.ADMIN || u.role === Role.ADMIN_1 || u.role === Role.ADMIN_2);
+          approverId = admin?.id || '';
+        }
+      }
+    } else {
+      approverId = '';
+    }
+
     const newUser: User = {
       ...signupForm,
+      approverId,
       id: Math.random().toString(36).substr(2, 9),
       quotas: { ...DEFAULT_QUOTAS }
     };
@@ -105,19 +163,44 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    localStorage.removeItem(CURRENT_USER_KEY);
     setActiveTab('dashboard');
+  };
+
+  const getLeaveTypeKey = (type: string): keyof LeaveQuotas => {
+    const match = type.match(/\(([^)]+)\)/);
+    if (match && match[1]) return match[1] as keyof LeaveQuotas;
+    const fallback = type.split(' ')[0];
+    return fallback as keyof LeaveQuotas;
+  };
+
+  const countWorkingDays = (startDateStr: string, endDateStr: string) => {
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 0;
+
+    const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+    if (end < start) return 0;
+
+    let count = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const day = d.getDay();
+      if (day !== 0 && day !== 6) count += 1;
+    }
+    return count;
   };
 
   const handleApplyLeave = async (request: Omit<LeaveRequest, 'id' | 'appliedDate' | 'status' | 'userName' | 'department'>) => {
     if (!currentUser) return;
     
-    // Calculate number of days
-    const startDate = new Date(request.startDate);
-    const endDate = new Date(request.endDate);
-    const daysRequested = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    // Calculate number of working days (Mon-Fri only) unless manually provided
+    const daysRequested = request.manualDays && request.manualDays > 0
+      ? request.manualDays
+      : countWorkingDays(request.startDate, request.endDate);
     
     // Extract leave type key (e.g., "CL" from "Casual Leave (CL)")
-    const typeKey = request.type.split(' ')[0] as keyof LeaveQuotas;
+    const typeKey = getLeaveTypeKey(request.type);
     
     // Check if user has enough quota
     if (currentUser.quotas[typeKey] < daysRequested) {
@@ -172,9 +255,34 @@ const App: React.FC = () => {
 
   const handleLeaveAction = async (requestId: string, status: LeaveStatus) => {
     setIsLoading(true);
+    const request = leaveRequests.find(r => r.id === requestId);
+    const previousStatus = request?.status;
+    const userBefore = request ? users.find(u => u.id === request.userId) : undefined;
     await db.updateLeaveStatus(requestId, status);
     const [u, r] = await Promise.all([db.getUsers(), db.getLeaveRequests()]);
     setUsers(u);
+    if (request && previousStatus !== LeaveStatus.APPROVED && status === LeaveStatus.APPROVED && userBefore) {
+      const typeKey = getLeaveTypeKey(request.type);
+      const daysRequested = request.manualDays && request.manualDays > 0
+        ? request.manualDays
+        : countWorkingDays(request.startDate, request.endDate);
+      const userAfter = u.find(user => user.id === request.userId);
+      if (daysRequested > 0 && userAfter && userAfter.quotas[typeKey] === userBefore.quotas[typeKey]) {
+        const updatedQuotas = {
+          ...userAfter.quotas,
+          [typeKey]: Math.max(0, userAfter.quotas[typeKey] - daysRequested)
+        };
+        await db.updateQuotas(userAfter.id, updatedQuotas);
+        const updatedUsers = u.map(user =>
+          user.id === userAfter.id ? { ...user, quotas: updatedQuotas } : user
+        );
+        setUsers(updatedUsers);
+      }
+    }
+    if (currentUser) {
+      const refreshedUser = u.find(user => user.id === currentUser.id);
+      if (refreshedUser) setCurrentUser(refreshedUser);
+    }
     setLeaveRequests(r);
     setIsLoading(false);
   };
@@ -279,6 +387,12 @@ const App: React.FC = () => {
                   value={signupForm.name}
                   onChange={e => setSignupForm({...signupForm, name: e.target.value})}
                 />
+                <input
+                  type="date" required
+                  className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none text-sm font-semibold"
+                  value={signupForm.dateOfJoining}
+                  onChange={e => setSignupForm({...signupForm, dateOfJoining: e.target.value})}
+                />
                 <div className="grid grid-cols-2 gap-3">
                   <select
                     className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 text-sm font-semibold"
@@ -300,13 +414,26 @@ const App: React.FC = () => {
                     <select
                       className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm font-semibold"
                       value={signupForm.approverRole}
-                      onChange={e => setSignupForm({...signupForm, approverRole: e.target.value as ApproverRole})}
+                      onChange={e => setSignupForm({...signupForm, approverRole: e.target.value as ApproverRole, approverId: ''})}
                     >
                       <option value={ApproverRole.HOD}>{ApproverRole.HOD} - Your leaves will be approved by HOD</option>
                       <option value={ApproverRole.PRINCIPAL}>{ApproverRole.PRINCIPAL} - Your leaves will be approved by Principal</option>
                       <option value={ApproverRole.ADMIN}>{ApproverRole.ADMIN} - Your leaves will be approved by Admin</option>
                     </select>
-                    
+                    {signupForm.approverRole === ApproverRole.ADMIN && (
+                      <select
+                        className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm font-semibold"
+                        value={signupForm.approverId}
+                        onChange={e => setSignupForm({...signupForm, approverId: e.target.value})}
+                      >
+                        <option value="">Select admin email</option>
+                        {users
+                          .filter(u => u.role === Role.ADMIN || u.role === Role.ADMIN_1 || u.role === Role.ADMIN_2)
+                          .map(admin => (
+                            <option key={admin.id} value={admin.id}>{admin.email}</option>
+                          ))}
+                      </select>
+                    )}
                   </>
                 )}
                 {(signupForm.role === Role.ADMIN_1 || signupForm.role === Role.ADMIN_2 || signupForm.role === Role.ADMIN) && (

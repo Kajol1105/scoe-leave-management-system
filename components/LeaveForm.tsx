@@ -12,16 +12,19 @@ const LeaveForm: React.FC<LeaveFormProps> = ({ user, onSubmit }) => {
     type: LeaveType.CL,
     startDate: '',
     endDate: '',
+    manualDays: '',
     reason: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const manualDays = parseInt(formData.manualDays, 10);
     onSubmit({
       ...formData,
+      manualDays: Number.isFinite(manualDays) && manualDays > 0 ? manualDays : undefined,
       userId: user.id
     });
-    setFormData({ type: LeaveType.CL, startDate: '', endDate: '', reason: '' });
+    setFormData({ type: LeaveType.CL, startDate: '', endDate: '', manualDays: '', reason: '' });
     alert('Leave request submitted successfully!');
   };
 
@@ -69,6 +72,18 @@ const LeaveForm: React.FC<LeaveFormProps> = ({ user, onSubmit }) => {
               className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             />
           </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Number of Working Days on leaves (optional)</label>
+          <input
+            type="number"
+            min="0"
+            value={formData.manualDays}
+            onChange={(e) => setFormData({ ...formData, manualDays: e.target.value })}
+            className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            placeholder="Enter working days"
+          />
+          <p className="text-xs text-gray-500 mt-1">If provided, this number will be used for deduction instead of date calculation.</p>
         </div>
 
         <div>

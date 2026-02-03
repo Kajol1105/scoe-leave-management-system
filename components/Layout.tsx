@@ -29,12 +29,15 @@ const Layout: React.FC<LayoutProps> = ({
   if (!user) return <>{children}</>;
 
   const isAdmin =
-    user.role === Role.ADMIN ||
     user.role === Role.ADMIN_1 ||
     user.role === Role.ADMIN_2;
 
   const isApprover =
-    user.role === Role.HOD || user.role === Role.PRINCIPAL;
+    user.role === Role.HOD ||
+    user.role === Role.PRINCIPAL ||
+    user.role === Role.ADMIN ||
+    user.role === Role.ADMIN_1 ||
+    user.role === Role.ADMIN_2;
 
   const isPrincipal = user.role === Role.PRINCIPAL;
 

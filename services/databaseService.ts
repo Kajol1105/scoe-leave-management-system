@@ -9,6 +9,7 @@ import {
   getFirestore,
   collection,
   getDocs,
+  getDoc,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -74,6 +75,28 @@ let dbState: AppState = {
 export const db = {
   // Delay helper to simulate network latency
   delay: (ms = 300) => new Promise(resolve => setTimeout(resolve, ms)),
+  getLeaveTypeKey: (type: string): keyof LeaveQuotas => {
+    const match = type.match(/\(([^)]+)\)/);
+    if (match && match[1]) return match[1] as keyof LeaveQuotas;
+    const fallback = type.split(' ')[0];
+    return fallback as keyof LeaveQuotas;
+  },
+  countWorkingDays: (startDateStr: string, endDateStr: string): number => {
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 0;
+
+    const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+    if (end < start) return 0;
+
+    let count = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const day = d.getDay();
+      if (day !== 0 && day !== 6) count += 1;
+    }
+    return count;
+  },
 
   async getUsers(): Promise<User[]> {
     try {
@@ -81,7 +104,8 @@ export const db = {
       const querySnapshot = await getDocs(collection(db, 'users'));
       const users: User[] = [];
       querySnapshot.forEach((doc) => {
-        users.push(doc.data() as User);
+        const data = doc.data() as User;
+        users.push({ ...data, id: data.id || doc.id });
       });
       return users;
     } catch (error) {
@@ -129,7 +153,19 @@ export const db = {
     try {
       const { firestore: db } = initializeFirebase();
       const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, { quotas });
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        await updateDoc(userRef, { quotas });
+        return;
+      }
+      // Fallback: locate by stored id field if doc id doesn't match
+      const userDoc = await getDocs(query(collection(db, 'users'), where('id', '==', userId)));
+      const docId = userDoc.docs[0]?.id;
+      if (docId) {
+        await updateDoc(doc(db, 'users', docId), { quotas });
+        return;
+      }
+      throw new Error('User not found for quota update');
     } catch (error) {
       console.error('Error updating quotas in Firebase:', error);
       dbState.users = dbState.users.map(u => 
@@ -144,7 +180,8 @@ export const db = {
       const querySnapshot = await getDocs(collection(db, 'leaveRequests'));
       const requests: LeaveRequest[] = [];
       querySnapshot.forEach((doc) => {
-        requests.push(doc.data() as LeaveRequest);
+        const data = doc.data() as LeaveRequest;
+        requests.push({ ...data, id: data.id || doc.id });
       });
       return requests.sort((a, b) => new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime());
     } catch (error) {
@@ -157,6 +194,7 @@ export const db = {
     try {
       const { firestore: db } = initializeFirebase();
       const docRef = await addDoc(collection(db, 'leaveRequests'), request);
+      await updateDoc(doc(db, 'leaveRequests', docRef.id), { id: docRef.id });
       return { ...request, id: docRef.id };
     } catch (error) {
       console.error('Error applying leave in Firebase:', error);
@@ -167,35 +205,52 @@ export const db = {
 
   async updateLeaveStatus(requestId: string, status: LeaveStatus): Promise<void> {
     try {
-      const { firestore: db } = initializeFirebase();
-      const requestRef = doc(db, 'leaveRequests', requestId);
-      
-      // First get the request document
-      const requestSnapshot = await getDocs(query(collection(db, 'leaveRequests'), where('id', '==', requestId)));
-      if (requestSnapshot.empty) {
-        console.error('Leave request not found:', requestId);
-        throw new Error('Leave request not found');
+      const { firestore: firestoreDb } = initializeFirebase();
+      const requestRef = doc(firestoreDb, 'leaveRequests', requestId);
+
+      let requestDoc = await getDoc(requestRef);
+      if (!requestDoc.exists()) {
+        // Fallback: older records may store custom id field
+        const requestSnapshot = await getDocs(query(collection(firestoreDb, 'leaveRequests'), where('id', '==', requestId)));
+        if (requestSnapshot.empty) {
+          console.error('Leave request not found:', requestId);
+          throw new Error('Leave request not found');
+        }
+        requestDoc = requestSnapshot.docs[0];
       }
-      
-      const requestDoc = requestSnapshot.docs[0];
+
       const request = requestDoc.data() as LeaveRequest;
       
+      const previousStatus = request.status;
+
       // Update the leave status using the document ID
-      await updateDoc(doc(db, 'leaveRequests', requestDoc.id), { status });
+      await updateDoc(doc(firestoreDb, 'leaveRequests', requestDoc.id), { status });
 
       // If approved, deduct from user quotas
-      if (status === LeaveStatus.APPROVED) {
-        // Calculate number of days
-        const startDate = new Date(request.startDate);
-        const endDate = new Date(request.endDate);
-        const daysRequested = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      if (status === LeaveStatus.APPROVED && previousStatus !== LeaveStatus.APPROVED) {
+        // Calculate number of working days (Mon-Fri only) unless manually provided
+        const daysRequested = request.manualDays && request.manualDays > 0
+          ? request.manualDays
+          : db.countWorkingDays(request.startDate, request.endDate);
         
-        const typeKey = request.type.split(' ')[0] as keyof LeaveQuotas;
-        const userDoc = await getDocs(query(collection(db, 'users'), where('id', '==', request.userId)));
-        const user = userDoc.docs[0]?.data() as User;
-        
-        if (user) {
-          await updateDoc(doc(db, 'users', userDoc.docs[0].id), {
+        const typeKey = db.getLeaveTypeKey(request.type);
+        const userRef = doc(firestoreDb, 'users', request.userId);
+        const userSnap = await getDoc(userRef);
+        let user: User | undefined;
+        let userDocId: string | undefined;
+
+        if (userSnap.exists()) {
+          user = userSnap.data() as User;
+          userDocId = userRef.id;
+        } else {
+          // Legacy fallback: find user by stored id field if doc id doesn't match
+          const userDoc = await getDocs(query(collection(firestoreDb, 'users'), where('id', '==', request.userId)));
+          user = userDoc.docs[0]?.data() as User;
+          userDocId = userDoc.docs[0]?.id;
+        }
+
+        if (user && userDocId) {
+          await updateDoc(doc(firestoreDb, 'users', userDocId), {
             quotas: {
               ...user.quotas,
               [typeKey]: Math.max(0, user.quotas[typeKey] - daysRequested)
@@ -209,15 +264,16 @@ export const db = {
       if (reqIndex === -1) return;
 
       const request = dbState.leaveRequests[reqIndex];
+      const previousStatus = request.status;
       dbState.leaveRequests[reqIndex] = { ...request, status };
 
-      if (status === LeaveStatus.APPROVED) {
-        // Calculate number of days
-        const startDate = new Date(request.startDate);
-        const endDate = new Date(request.endDate);
-        const daysRequested = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      if (status === LeaveStatus.APPROVED && previousStatus !== LeaveStatus.APPROVED) {
+        // Calculate number of working days (Mon-Fri only) unless manually provided
+        const daysRequested = request.manualDays && request.manualDays > 0
+          ? request.manualDays
+          : db.countWorkingDays(request.startDate, request.endDate);
         
-        const typeKey = request.type.split(' ')[0] as keyof LeaveQuotas;
+        const typeKey = db.getLeaveTypeKey(request.type);
         dbState.users = dbState.users.map(u => {
           if (u.id === request.userId) {
             return {
