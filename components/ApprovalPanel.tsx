@@ -26,6 +26,11 @@ const ApprovalPanel: React.FC<ApprovalPanelProps> = ({ user, users, requests, on
       return false;
     }
 
+    // Admin 1 / Admin 2 can approve all except Principal
+    if ((user.role === Role.ADMIN_1 || user.role === Role.ADMIN_2) && applicant.role !== Role.PRINCIPAL) {
+      return true;
+    }
+
     // Check if current user is the designated approver (new system)
     if (req.approverId === user.id) {
       return true;
