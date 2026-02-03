@@ -74,16 +74,16 @@ const LeaveForm: React.FC<LeaveFormProps> = ({ user, onSubmit }) => {
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Number of Working Days on leaves (optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Number of Working Days on leaves</label>
           <input
             type="number"
-            min="0"
+            required
             value={formData.manualDays}
             onChange={(e) => setFormData({ ...formData, manualDays: e.target.value })}
             className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             placeholder="Enter working days"
           />
-          <p className="text-xs text-gray-500 mt-1">If provided, this number will be used for deduction instead of date calculation.</p>
+          <p className="text-xs text-gray-500 mt-1"> number of leaves from working days i.e. from monday to friday should be added, exclude saturday and sunday </p>
         </div>
 
         <div>
