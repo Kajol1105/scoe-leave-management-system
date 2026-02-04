@@ -83,7 +83,7 @@ const LeaveForm: React.FC<LeaveFormProps> = ({ user, onSubmit }) => {
             className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             placeholder="Enter working days"
           />
-          <p className="text-xs text-gray-500 mt-1"> number of leaves from working days i.e. from monday to friday should be added, exclude saturday and sunday </p>
+          <p className="text-xs text-gray-500 mt-1"> Add the number of days you are taking leaves </p>
         </div>
 
         <div>

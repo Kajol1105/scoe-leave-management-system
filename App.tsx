@@ -31,6 +31,7 @@ const App: React.FC = () => {
     approverId: '',
   });
   const [adminCodeInput, setAdminCodeInput] = useState('');
+  const [historyFromDate, setHistoryFromDate] = useState('');
 
   // Initial Sync with Global Database
   useEffect(() => {
@@ -493,6 +494,18 @@ const App: React.FC = () => {
         {activeTab === 'history' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-black text-blue-900 tracking-tight">Leave History</h2>
+            <div className="flex items-center justify-between gap-4 bg-white/60 p-4 rounded-2xl border border-white/60 shadow-sm">
+              <label htmlFor="historyFromDate" className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                Show from date
+              </label>
+              <input
+                id="historyFromDate"
+                type="date"
+                className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700"
+                value={historyFromDate}
+                onChange={e => setHistoryFromDate(e.target.value)}
+              />
+            </div>
             <div className="bg-white/40 rounded-3xl overflow-hidden border border-white/60 shadow-inner">
               <table className="min-w-full divide-y divide-gray-100">
                 <thead className="bg-gray-50/50 backdrop-blur-md">
@@ -503,10 +516,21 @@ const App: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {leaveRequests.filter(r => r.userId === currentUser.id).length === 0 ? (
-                    <tr><td colSpan={3} className="p-8 text-center text-gray-400 italic">No applications recorded.</td></tr>
-                  ) : (
-                    leaveRequests.filter(r => r.userId === currentUser.id).map(req => (
+                  {(() => {
+                    const userHistory = leaveRequests.filter(r => r.userId === currentUser.id);
+                    const filteredHistory = historyFromDate
+                      ? userHistory.filter(r => r.startDate >= historyFromDate)
+                      : userHistory;
+
+                    if (filteredHistory.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={3} className="p-8 text-center text-gray-400 italic">No applications recorded.</td>
+                        </tr>
+                      );
+                    }
+
+                    return filteredHistory.map(req => (
                       <tr key={req.id}>
                         <td className="px-6 py-4 text-sm font-black text-blue-900">{req.type}</td>
                         <td className="px-6 py-4 text-xs font-bold text-gray-600">
@@ -523,8 +547,8 @@ const App: React.FC = () => {
                           )}
                         </td>
                       </tr>
-                    ))
-                  )}
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>
