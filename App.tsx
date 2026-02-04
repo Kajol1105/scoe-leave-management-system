@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from './services/databaseService';
-import { User, Role, Department, LeaveRequest, LeaveStatus, LeaveQuotas, ApproverRole } from './types';
+import { User, Role, Department, LeaveRequest, LeaveStatus, LeaveQuotas, ApproverRole, LeaveType } from './types';
 import { DEFAULT_QUOTAS, ROLES, DEPARTMENTS } from './constants';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -33,6 +33,7 @@ const App: React.FC = () => {
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [historyFromDate, setHistoryFromDate] = useState('');
   const [historyToDate, setHistoryToDate] = useState('');
+  const [historyLeaveType, setHistoryLeaveType] = useState('');
 
   // Initial Sync with Global Database
   useEffect(() => {
@@ -520,6 +521,22 @@ const App: React.FC = () => {
                   onChange={e => setHistoryToDate(e.target.value)}
                 />
               </div>
+              <div className="flex items-center gap-3">
+                <label htmlFor="historyLeaveType" className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  Type
+                </label>
+                <select
+                  id="historyLeaveType"
+                  className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700"
+                  value={historyLeaveType}
+                  onChange={e => setHistoryLeaveType(e.target.value)}
+                >
+                  <option value="">All types</option>
+                  {Object.values(LeaveType).map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="bg-white/40 rounded-3xl overflow-hidden border border-white/60 shadow-inner">
               <table className="min-w-full divide-y divide-gray-100">
@@ -536,6 +553,7 @@ const App: React.FC = () => {
                     const filteredHistory = userHistory.filter(r => {
                       if (historyFromDate && r.startDate < historyFromDate) return false;
                       if (historyToDate && r.endDate > historyToDate) return false;
+                      if (historyLeaveType && r.type !== historyLeaveType) return false;
                       return true;
                     });
 
