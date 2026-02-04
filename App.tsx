@@ -32,6 +32,7 @@ const App: React.FC = () => {
   });
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [historyFromDate, setHistoryFromDate] = useState('');
+  const [historyToDate, setHistoryToDate] = useState('');
 
   // Initial Sync with Global Database
   useEffect(() => {
@@ -494,17 +495,31 @@ const App: React.FC = () => {
         {activeTab === 'history' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-black text-blue-900 tracking-tight">Leave History</h2>
-            <div className="flex items-center justify-between gap-4 bg-white/60 p-4 rounded-2xl border border-white/60 shadow-sm">
-              <label htmlFor="historyFromDate" className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                Show from date
-              </label>
-              <input
-                id="historyFromDate"
-                type="date"
-                className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700"
-                value={historyFromDate}
-                onChange={e => setHistoryFromDate(e.target.value)}
-              />
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-white/60 p-4 rounded-2xl border border-white/60 shadow-sm">
+              <div className="flex items-center gap-3">
+                <label htmlFor="historyFromDate" className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  From
+                </label>
+                <input
+                  id="historyFromDate"
+                  type="date"
+                  className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700"
+                  value={historyFromDate}
+                  onChange={e => setHistoryFromDate(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <label htmlFor="historyToDate" className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  To
+                </label>
+                <input
+                  id="historyToDate"
+                  type="date"
+                  className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700"
+                  value={historyToDate}
+                  onChange={e => setHistoryToDate(e.target.value)}
+                />
+              </div>
             </div>
             <div className="bg-white/40 rounded-3xl overflow-hidden border border-white/60 shadow-inner">
               <table className="min-w-full divide-y divide-gray-100">
@@ -518,9 +533,11 @@ const App: React.FC = () => {
                 <tbody className="divide-y divide-gray-100">
                   {(() => {
                     const userHistory = leaveRequests.filter(r => r.userId === currentUser.id);
-                    const filteredHistory = historyFromDate
-                      ? userHistory.filter(r => r.startDate >= historyFromDate)
-                      : userHistory;
+                    const filteredHistory = userHistory.filter(r => {
+                      if (historyFromDate && r.startDate < historyFromDate) return false;
+                      if (historyToDate && r.endDate > historyToDate) return false;
+                      return true;
+                    });
 
                     if (filteredHistory.length === 0) {
                       return (
