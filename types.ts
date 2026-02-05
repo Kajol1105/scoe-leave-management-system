@@ -80,6 +80,7 @@ export interface LeaveRequest {
   startDate: string;
   endDate: string;
   manualDays?: number;
+  halfDaySession?: 'Morning' | 'Evening';
   reason: string;
   status: LeaveStatus;
   appliedDate: string;

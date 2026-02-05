@@ -13,18 +13,26 @@ const LeaveForm: React.FC<LeaveFormProps> = ({ user, onSubmit }) => {
     startDate: '',
     endDate: '',
     manualDays: '',
-    reason: ''
+    reason: '',
+    halfDaySession: 'Morning' as 'Morning' | 'Evening'
   });
+  const [duration, setDuration] = useState<'full' | 'half'>('full');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const manualDays = parseInt(formData.manualDays, 10);
-    onSubmit({
-      ...formData,
+    const manualDays = parseFloat(formData.manualDays);
+    const requestData = {
+      type: formData.type,
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+      reason: formData.reason,
       manualDays: Number.isFinite(manualDays) && manualDays > 0 ? manualDays : undefined,
-      userId: user.id
-    });
-    setFormData({ type: LeaveType.CL, startDate: '', endDate: '', manualDays: '', reason: '' });
+      userId: user.id,
+      ...(duration === 'half' ? { halfDaySession: formData.halfDaySession } : {})
+    };
+    onSubmit(requestData);
+    setFormData({ type: LeaveType.CL, startDate: '', endDate: '', manualDays: '', reason: '', halfDaySession: 'Morning' });
+    setDuration('full');
     alert('Leave request submitted successfully!');
   };
 
@@ -58,7 +66,14 @@ const LeaveForm: React.FC<LeaveFormProps> = ({ user, onSubmit }) => {
               type="date"
               required
               value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+              onChange={(e) => {
+                const nextStartDate = e.target.value;
+                setFormData({
+                  ...formData,
+                  startDate: nextStartDate,
+                  endDate: duration === 'half' ? nextStartDate : formData.endDate
+                });
+              }}
               className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             />
           </div>
@@ -69,10 +84,46 @@ const LeaveForm: React.FC<LeaveFormProps> = ({ user, onSubmit }) => {
               required
               value={formData.endDate}
               onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+              disabled={duration === 'half'}
               className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             />
           </div>
         </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Leave Duration</label>
+          <select
+            value={duration}
+            onChange={(e) => {
+              const nextDuration = e.target.value as 'full' | 'half';
+              setDuration(nextDuration);
+              setFormData({
+                ...formData,
+                manualDays: nextDuration === 'half' ? '0.5' : formData.manualDays,
+                endDate: nextDuration === 'half' ? formData.startDate : formData.endDate
+              });
+            }}
+            className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          >
+            <option value="full">Full Day</option>
+            <option value="half">Half Day (0.5)</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">Choose half day if you are taking a 0.5 day leave.</p>
+        </div>
+        {duration === 'half' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Half Day Session</label>
+            <select
+              required
+              value={formData.halfDaySession}
+              onChange={(e) => setFormData({ ...formData, halfDaySession: e.target.value as 'Morning' | 'Evening' })}
+              className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            >
+              <option value="Morning">Morning Shift</option>
+              <option value="Evening">Evening Shift</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">Select the session for your half day.</p>
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Number of Working Days on leaves</label>
           <input
@@ -80,10 +131,13 @@ const LeaveForm: React.FC<LeaveFormProps> = ({ user, onSubmit }) => {
             required
             value={formData.manualDays}
             onChange={(e) => setFormData({ ...formData, manualDays: e.target.value })}
+            step="0.5"
+            min="0"
+            disabled={duration === 'half'}
             className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             placeholder="Enter working days"
           />
-          <p className="text-xs text-gray-500 mt-1"> Add the number of days you are taking leaves </p>
+          <p className="text-xs text-gray-500 mt-1"> Add the number of days you are taking leaves. </p>
         </div>
 
         <div>

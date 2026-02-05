@@ -570,6 +570,11 @@ const App: React.FC = () => {
                         <td className="px-6 py-4 text-sm font-black text-blue-900">{req.type}</td>
                         <td className="px-6 py-4 text-xs font-bold text-gray-600">
                           {req.startDate} to {req.endDate}
+                          {req.manualDays === 0.5 && req.halfDaySession && (
+                            <div className="mt-2 inline-flex items-center rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">
+                              Half Day · {req.halfDaySession} Shift
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${req.status === LeaveStatus.APPROVED ? 'bg-green-100 text-green-700' : req.status === LeaveStatus.REJECTED ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>

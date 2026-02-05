@@ -192,6 +192,12 @@ const ApprovalPanel: React.FC<ApprovalPanelProps> = ({ user, users, requests, on
                       </svg>
                       {new Date(req.startDate).toLocaleDateString()} → {new Date(req.endDate).toLocaleDateString()}
                     </div>
+                    {req.manualDays === 0.5 && req.halfDaySession && (
+                      <div className="text-[10px] font-black uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1 inline-flex items-center w-fit">
+                        Half Day · {req.halfDaySession} Shift
+                      </div>
+                    )}
+
                     <div className="text-sm text-gray-700 bg-white p-3 rounded-lg border border-gray-100 italic line-clamp-3">
                       "{req.reason}"
                     </div>

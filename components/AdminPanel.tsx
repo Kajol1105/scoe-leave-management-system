@@ -90,7 +90,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
   const incrementLeaves = (userId: string, type: keyof LeaveQuotas, amount: number) => {
     const user = users.find(u => u.id === userId);
     if (user) {
-      const newQuotas = { ...user.quotas, [type]: Math.max(0, user.quotas[type] + amount) };
+      const updatedValue = Number((user.quotas[type] + amount).toFixed(2));
+      const newQuotas = { ...user.quotas, [type]: Math.max(0, updatedValue) };
       onUpdateQuotas(userId, newQuotas);
     }
   };
@@ -318,7 +319,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
                               <span className="text-[8px] font-black text-gray-400 uppercase mb-1">{key}</span>
                               <div className="flex items-center gap-1">
                                 <button
-                                  onClick={() => incrementLeaves(user.id, key, -1)}
+                                  onClick={() => incrementLeaves(user.id, key, -0.5)}
                                   className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200"
                                   title="Decrease"
                                 >
@@ -330,11 +331,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, onAddUser, onDeleteUser,
                                   value={tempQuotas?.[key] ?? 0}
                                   onChange={(e) => setTempQuotas({
                                     ...tempQuotas!,
-                                    [key]: Math.max(0, parseInt(e.target.value) || 0)
+                                    [key]: Math.max(0, parseFloat(e.target.value) || 0)
                                   })}
+                                  step="0.5"
+                                  min="0"
                                 />
                                 <button
-                                  onClick={() => incrementLeaves(user.id, key, 1)}
+                                  onClick={() => incrementLeaves(user.id, key, 0.5)}
                                   className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
                                   title="Increase"
                                 >
